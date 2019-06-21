@@ -1,5 +1,5 @@
 import { ApisauceInstance, create } from "apisauce"
-import { get } from "lodash"
+import { fill, get } from "lodash"
 import {
   WriteExerciseWorkloadRequestWorkload,
   WriteExerciseWorkloadsRequest,
@@ -35,9 +35,11 @@ export class SheetsApi {
     const queryPath = `${path}?valueInputOption=RAW&insertDataOption=OVERWRITE&includeValuesInResponse=false`
 
     //list for weeks placeholder
-    const weeksValues = new Array(request.durationInWeeks).map((_, index) => {
-      return [`w${index + 1}`]
-    })
+    const weeksValues = fill(new Array<Array<string>>(request.durationInWeeks), []).map(
+      (_, index) => {
+        return [`w${index + 1}`]
+      },
+    )
 
     const daysHeaderContent = request.workouts.reduce((acc, workout) => {
       const dayHeader = this.buildDayHeader(workout, weeksValues)
