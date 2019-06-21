@@ -84,7 +84,7 @@ export class SheetsApi {
 
   public async writeExerciseWorkloads(request: WriteExerciseWorkloadsRequest): Promise<void> {
     this.api.setBaseURL(GoogleApisBaseUrls.sheetsApi)
-    const exerciseColumn = String.fromCharCode("B".charCodeAt(0) + request.exerciseNumber)
+    const exerciseColumn = String.fromCharCode("B".charCodeAt(0) + request.exerciseNumber - 1)
     const weekRow = 7 * request.day - 4 + request.weeek
     const path = `/v4/spreadsheets/${request.spreadsheetId}/values/program${
       request.programId
