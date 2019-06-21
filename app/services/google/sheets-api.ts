@@ -1,8 +1,11 @@
 import { ApisauceInstance, create } from "apisauce"
 import { get } from "lodash"
-import { Program } from "../../models/program"
-import { Workload } from "../../models/workload"
-import { Workout } from "../../models/workout"
+import {
+  WriteExerciseWorkloadRequestWorkload,
+  WriteExerciseWorkloadsRequest,
+  WriteProgramHeaderRequest,
+  WriteProgramHeaderRequestWorkout,
+} from "./sheets-models"
 
 enum GoogleApisBaseUrls {
   googleApi = "https://www.googleapis.com",
@@ -24,18 +27,19 @@ export class SheetsApi {
     })
   }
 
-  public async writeProgramHeader(program: Program, spreadsheetId: string) {
+  public async writeProgramHeader(request: WriteProgramHeaderRequest) {
     this.api.setBaseURL(GoogleApisBaseUrls.sheetsApi)
-    const path = `/v4/spreadsheets/${spreadsheetId}/values/program${program.id}!A1:append`
+    const path = `/v4/spreadsheets/${request.spreadSheetId}/values/program${
+      request.programId
+    }!A1:append`
     const queryPath = `${path}?valueInputOption=RAW&insertDataOption=OVERWRITE&includeValuesInResponse=false`
 
     //list for weeks placeholder
-    const weeksValues = new Array(program.duration) // +1 is for the day
-    for (let i = 0; i < program.duration; i++) {
-      weeksValues[i] = [`w${i + 1}`]
-    }
+    const weeksValues = new Array(request.durationInWeeks).map((_, index) => {
+      return [`w${index + 1}`]
+    })
 
-    const daysHeaderContent = Array.from(program.workouts.values()).reduce((acc, workout) => {
+    const daysHeaderContent = request.workouts.reduce((acc, workout) => {
       const dayHeader = this.buildDayHeader(workout, weeksValues)
       acc.push(...dayHeader)
       return acc
@@ -51,17 +55,22 @@ export class SheetsApi {
     }
   }
 
-  private buildDayHeader(workout: Workout, weekValues: string[][]): string[][] {
-    const exercices = workout.exercicies
+  private buildDayHeader(
+    workout: WriteProgramHeaderRequestWorkout,
+    weekValues: string[][],
+  ): string[][] {
+    const exercises = workout.exercises
 
     //list with exercise names
-    const exerciseNames = exercices.map(exercise => exercise.name)
+    const exerciseNames = exercises.map(exercise => exercise.name)
 
     //list with exercise sets
-    const exerciseSets = exercices.map(exercise => exercise.sets.join(","))
+    const exerciseSets = exercises.map(exercise => exercise.sets.join(","))
 
     // list with exercise repetions
-    const exerciseReps = exercices.map(exercice => exercice.repetionRange.join("-"))
+    const exerciseReps = exercises.map(
+      exercise => `${exercise.lowestRepetionRange}-${exercise.highestRepetionRange}`,
+    )
 
     return [
       [`Day ${workout.day}`, ...exerciseNames],
@@ -71,23 +80,49 @@ export class SheetsApi {
     ]
   }
 
-  public async writeWorkload(workload: Workload, spreadsheetId: string): Promise<void> {
+  public async writeExerciseWorkloads(request: WriteExerciseWorkloadsRequest): Promise<void> {
     this.api.setBaseURL(GoogleApisBaseUrls.sheetsApi)
-    const exerciseColumn = String.fromCharCode("B".charCodeAt(0) + workload.exerciseIndex)
-    const weekRow = 7 * workload.day - 4 + workload.week
-    const path = `/v4/spreadsheets/${spreadsheetId}/values/program${
-      workload.programId
+    const exerciseColumn = String.fromCharCode("B".charCodeAt(0) + request.exerciseNumber)
+    const weekRow = 7 * request.day - 4 + request.weeek
+    const path = `/v4/spreadsheets/${request.spreadsheetId}/values/program${
+      request.programId
     }!${exerciseColumn}${weekRow}:append`
     const queryPath = `${path}?valueInputOption=RAW&insertDataOption=OVERWRITE&includeValuesInResponse=false`
 
     // This promises always fulfills
     const response = await this.api.post(queryPath, {
       majorDimension: "ROWS",
-      values: [[workload.compressWorkloads()]],
+      values: [[this.buildWorkloadData(request.workloads)]],
     })
     if (!response.ok) {
       throw new Error(response.problem)
     }
+  }
+
+  private buildWorkloadData(workloads: WriteExerciseWorkloadRequestWorkload[]): string {
+    const weightOrder: Array<number> = []
+    const liftAggregations: Map<number, Array<number>> = new Map()
+    workloads.forEach(workloads => {
+      const { weight, repetions } = workloads
+      const currentIndex = weightOrder.length - 1
+      if (currentIndex === -1 || weightOrder[weightOrder.length - 1] !== weight) {
+        weightOrder.push(weight)
+        liftAggregations.set(currentIndex + 1, [repetions])
+      } else {
+        const cur = liftAggregations.get(currentIndex)
+        liftAggregations.set(currentIndex, [...cur, repetions])
+      }
+    })
+    return weightOrder
+      .reduce((acc, weight, index) => {
+        const liftsFormatted = liftAggregations
+          .get(index)
+          .map(value => value.toString())
+          .join(",")
+        acc.push(`${weight}x${liftsFormatted}`)
+        return acc
+      }, new Array<string>())
+      .join(" / ")
   }
 
   public async getOrCreateSpreadSheet(): Promise<string> {
