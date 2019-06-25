@@ -1,5 +1,6 @@
 import { Instance, SnapshotOut, types } from "mobx-state-tree"
 import { omit } from "ramda"
+import { ProgramModel } from "../program"
 
 /**
  * Model description here for TypeScript hints.
@@ -10,9 +11,18 @@ export const CircleUserModel = types
     name: types.string,
     photo: types.maybe(types.string),
     accessToken: types.string,
+    program: types.maybe(ProgramModel),
   })
   .views(self => ({}))
-  .actions(self => ({}))
+  .actions(self => ({
+    addProgram(id: number, durationInWeeks: number) {
+      self.program = ProgramModel.create({
+        id: id,
+        duration: durationInWeeks,
+        workouts: {},
+      })
+    },
+  }))
   .postProcessSnapshot(omit(["accessToken"]))
 
 type CircleUserType = Instance<typeof CircleUserModel>

@@ -1,6 +1,7 @@
 import { onSnapshot } from "mobx-state-tree"
 import { Api } from "../../services/api"
 import { Reactotron } from "../../services/reactotron"
+import { load as keyChainLoad } from "../../utils/keychain"
 import * as storage from "../../utils/storage"
 import { Environment } from "../environment"
 import { RootStore, RootStoreModel } from "./root-store"
@@ -9,6 +10,8 @@ import { RootStore, RootStoreModel } from "./root-store"
  * The key we'll be saving our state as within async storage.
  */
 const ROOT_STATE_STORAGE_KEY = "root"
+const CIRCLE_USER_PROP_NAME = "circleUser"
+const ACCESS_TOKEN_PROP_NAME = "accessToken"
 
 /**
  * Setup the root state.
@@ -22,6 +25,8 @@ export async function setupRootStore() {
   try {
     // load data from storage
     data = (await storage.load(ROOT_STATE_STORAGE_KEY)) || {}
+    const accessToken = await keyChainLoad()
+    data[CIRCLE_USER_PROP_NAME][ACCESS_TOKEN_PROP_NAME] = accessToken.password
     rootStore = RootStoreModel.create(data, env)
   } catch (e) {
     // if there's any problems loading, then let's at least fallback to an empty state

@@ -10,6 +10,7 @@ import { RootStore } from "../../models/root-store"
 import { ScopesNeeded } from "../../services/google/sheets-api"
 import { color } from "../../theme"
 import { palette } from "../../theme/palette"
+import { save as keychainSave } from "../../utils/keychain"
 
 export interface SplashScreenProps extends NavigationScreenProps<{}> {
   rootStore?: RootStore
@@ -75,8 +76,11 @@ export class SplashScreen extends React.Component<SplashScreenProps, {}> {
       const circleUser: CircleUserSnapshot = {
         name: userInfo.user.name,
         photo: userInfo.user.photo,
+        program: undefined,
       }
       this.store.setCircleUser(circleUser, tokens.accessToken)
+      keychainSave(this.store.circleUser.name, tokens.accessToken)
+      this.props.navigation.navigate("menuScreen")
     } catch (error) {
       console.log(error)
       switch (error.code) {

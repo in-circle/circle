@@ -15,6 +15,9 @@ export const ProgramModel = types
     getWorkoutForDay(day: number) {
       return self.workouts.get(day.toString())
     },
+    hasWorkoutForDay(day: number) {
+      return self.workouts.has(day.toString())
+    },
   }))
   .actions(self => ({
     addWorkout(day: number) {
@@ -34,10 +37,18 @@ export const ProgramModel = types
       lowestRepetion: number,
       highestRepetion: number,
     ) {
-      const workoutForDay = self.getWorkoutForDay(day)
-      if (workoutForDay) {
-        workoutForDay.addExercise(exerciseName, exerciseSets, lowestRepetion, highestRepetion)
+      if (!self.hasWorkoutForDay(day)) {
+        self.workouts.set(
+          day.toString(),
+          WorkoutModel.create({
+            day: day,
+            numberOfWeeks: self.duration,
+            exercicies: [],
+          }),
+        )
       }
+      const workoutForDay = self.getWorkoutForDay(day)
+      workoutForDay.addExercise(exerciseName, exerciseSets, lowestRepetion, highestRepetion)
     },
     reportWorkloadToDay(
       day: number,
